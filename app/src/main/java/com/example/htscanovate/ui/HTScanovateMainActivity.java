@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -16,7 +17,7 @@ import com.example.htscanovate.R;
 import com.example.htscanovate.data.view_model.HTScanovateViewModel;
 
 public class HTScanovateMainActivity extends AppCompatActivity {
-    private ImageButton openCameraButton;
+    private Button openCameraButton;
     private TextView textView;
     private HTScanovateViewModel viewModel;
 
@@ -39,9 +40,6 @@ public class HTScanovateMainActivity extends AppCompatActivity {
                 openCameraActivity();
             }
         });
-        if(viewModel.getLastJsonResponse() != null && !viewModel.getLastJsonResponse().isEmpty() && !viewModel.getLastJsonResponse().equals("")){
-            textView.setText(viewModel.getLastJsonResponse());
-        }
     }
 
     private void  openCameraActivity(){
@@ -57,5 +55,14 @@ public class HTScanovateMainActivity extends AppCompatActivity {
                 textView.setText(s);
             }
         });
+    }
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if(viewModel.getLastJsonResponse() != null && !viewModel.getLastJsonResponse().isEmpty() && !viewModel.getLastJsonResponse().equals("")){
+            textView.setText(viewModel.getLastJsonResponse());
+        }
     }
 }

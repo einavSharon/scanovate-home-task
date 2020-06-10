@@ -1,11 +1,9 @@
 package com.example.htscanovate.ui;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Matrix;
 import android.graphics.RectF;
@@ -15,7 +13,6 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Build;
@@ -24,13 +21,13 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Size;
 import android.util.SparseIntArray;
-import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
@@ -47,14 +44,11 @@ public class HTScanovateCameraActivity extends AppCompatActivity {
 
     private Size previewsize;
     private TextureView textureView;
-    private CameraModule mCurrentModule;
-    private int mLastRawOrientation = OrientationEventListener.ORIENTATION_UNKNOWN;
     private CameraDevice cameraDevice;
     private String mCameraId;
     private CaptureRequest.Builder previewBuilder;
     private HandlerThread mBackgroundHandlerThread;
     private Handler mBackgroundHandler;
-    private MyOrientationEventListener mOrientationListener;
     Button backButton;
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
 
@@ -63,34 +57,6 @@ public class HTScanovateCameraActivity extends AppCompatActivity {
         ORIENTATIONS.append(Surface.ROTATION_90, 0);
         ORIENTATIONS.append(Surface.ROTATION_180, 270);
         ORIENTATIONS.append(Surface.ROTATION_270, 180);
-    }
-
-    public interface CameraModule {
-        void onOrientationChanged(int orientation);
-    }
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.home_task_scanovate_activity_camera);
-        textureView = findViewById(R.id.textureview);
-        backButton = findViewById(R.id.back);
-        backButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                finish();
-            }
-        });
-        mOrientationListener = new MyOrientationEventListener(this);
-        connectCamera();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == MY_CAMERA_REQUEST_CODE && resultCode == RESULT_OK) {
-            connectCamera();
-        }
     }
 
     private CameraDevice.StateCallback mCameraDeviceCallback = new CameraDevice.StateCallback() {
@@ -133,6 +99,84 @@ public class HTScanovateCameraActivity extends AppCompatActivity {
 
         }
     };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.home_task_scanovate_activity_camera);
+        textureView = findViewById(R.id.textureview);
+        backButton = findViewById(R.id.back);
+        backButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish();
+            }
+        });
+        hasCamera();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        startBackgroundThread();
+        if (textureView.isAvailable()) {
+            setupCamera(textureView.getWidth(), textureView.getHeight());
+            connectCamera();
+            transformImage(textureView.getWidth(), textureView.getHeight());
+        } else {
+            textureView.setSurfaceTextureListener(mSurfaceTextureListener);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        closeCamera();
+        stopBackgroundThread();
+        super.onPause();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == MY_CAMERA_REQUEST_CODE && resultCode == RESULT_OK) {
+            connectCamera();
+        }
+    }
+
+    private boolean hasCamera() {
+
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+            return true;
+        } else {
+
+            AlertDialog camAlert = new AlertDialog.Builder(HTScanovateCameraActivity.this).create();
+            camAlert.setTitle("Alert");
+            camAlert.setMessage("there is no usable camera");
+            camAlert.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                    new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    });
+            camAlert.show();
+            return false;
+        }
+    }
+
+    private void connectCamera() {
+        CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
+                }
+            } else {
+                cameraManager.openCamera(mCameraId, mCameraDeviceCallback, mBackgroundHandler);
+            }
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
 
     private void setupCamera(int width, int height) {
         CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
@@ -188,47 +232,6 @@ public class HTScanovateCameraActivity extends AppCompatActivity {
         }
     }
 
-    private void connectCamera() {
-        CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-        try {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
-                }
-            } else {
-                cameraManager.openCamera(mCameraId, mCameraDeviceCallback, mBackgroundHandler);
-            }
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
-//    private void startBackgroundThread() {
-//        mBackgroundHandlerThread = new HandlerThread("cameraString");
-//        mBackgroundHandlerThread.start();
-//        mBackgroundHandler = new Handler(mBackgroundHandlerThread.getLooper());
-//    }
-
-//    private void stopBackgroundThread() {
-//        mBackgroundHandlerThread.quitSafely();
-//
-//        try {
-//            mBackgroundHandlerThread.join();
-//            mBackgroundHandlerThread = null;
-//            mBackgroundHandler = null;
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-//    }
-
-//    private void closeCamera() {
-//        if (cameraDevice != null) {
-//            cameraDevice.close();
-//            cameraDevice = null;
-//        }
-//    }
-
-
     private void startBackgroundThread() {
         mBackgroundHandlerThread = new HandlerThread("cameraString");
         mBackgroundHandlerThread.start();
@@ -247,31 +250,11 @@ public class HTScanovateCameraActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        startBackgroundThread();
-
-        if (textureView.isAvailable()) {
-            setupCamera(textureView.getWidth(), textureView.getHeight());
-            connectCamera();
-        } else {
-            textureView.setSurfaceTextureListener(mSurfaceTextureListener);
-        }
-    }
-
     private void closeCamera() {
         if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
         }
-    }
-
-    @Override
-    protected void onPause() {
-        closeCamera();
-        stopBackgroundThread();
-        super.onPause();
     }
 
     private void startPreview() {
@@ -296,7 +279,6 @@ public class HTScanovateCameraActivity extends AppCompatActivity {
                         @Override
                         public void onConfigureFailed(CameraCaptureSession session) {
                             Toast.makeText(getApplicationContext(), "Unable to set up camera preview", Toast.LENGTH_SHORT).show();
-
                         }
                     }, null);
         } catch (CameraAccessException e) {
@@ -315,49 +297,15 @@ public class HTScanovateCameraActivity extends AppCompatActivity {
             return;
         }
         Matrix matrix = new Matrix();
-        int rotation = getWindowManager().getDefaultDisplay().getRotation();
         RectF textureRectF = new RectF(0, 0, width, height);
         RectF previewRectF = new RectF(0, 0, previewsize.getHeight(), previewsize.getWidth());
         float centerX = textureRectF.centerX();
         float centerY = textureRectF.centerY();
-
-        if (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270) {
-            previewRectF.offset(centerX - previewRectF.centerX(),
-                    centerY - previewRectF.centerY());
-            matrix.setRectToRect(textureRectF, previewRectF, Matrix.ScaleToFit.FILL);
-            float scale = Math.max((float) width / previewsize.getWidth(),
-                    (float) height / previewsize.getHeight());
-            matrix.postScale(scale, scale, centerX, centerY);
-            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
-        }
+        previewRectF.offset(centerX - previewRectF.centerX(), centerY - previewRectF.centerY());
+        matrix.setRectToRect(textureRectF, previewRectF, Matrix.ScaleToFit.FILL);
+        float scale = Math.max((float) width / previewsize.getWidth(), (float) height / previewsize.getHeight());
+        matrix.postScale(scale, scale, centerX, centerY);
+        matrix.postRotate(90 , centerX, centerY);
         textureView.setTransform(matrix);
     }
-
-    private class MyOrientationEventListener extends OrientationEventListener {
-        public MyOrientationEventListener(Context context) {
-            super(context);
-        }
-
-        @Override
-        public void onOrientationChanged(int orientation) {
-            if (orientation == ORIENTATION_UNKNOWN)
-                return;
-            mLastRawOrientation = orientation;
-            mCurrentModule.onOrientationChanged(orientation);
-        }
-    }
-
-//    private void getChangedPreview() {
-//        if (cameraDevice == null) {
-//            return;
-//        }
-//        previewBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-//        HandlerThread thread = new HandlerThread("changed Preview");
-//        thread.start();
-//        Handler handler = new Handler(thread.getLooper());
-//        try {
-//            previewSession.setRepeatingRequest(previewBuilder.build(), null, handler);
-//        } catch (Exception e) {
-//        }
-//    }
 }
