@@ -122,12 +122,6 @@ public class HTScanovateNetworkManager implements HTTPBaseRequest.sessionExpired
         return result;
     }
 
-    /***
-     * Main method for sending the request.
-     * Handles sending, retries and respond handling
-     * @param httpRequestBase
-     * @return
-     */
     private boolean sendHttpRequest(HTTPBaseRequest httpRequestBase) {
         boolean isSuccess = false;
 

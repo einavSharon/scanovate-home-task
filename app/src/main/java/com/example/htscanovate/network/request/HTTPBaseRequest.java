@@ -89,18 +89,8 @@ public abstract class HTTPBaseRequest implements Comparable<HTTPBaseRequest> {
         setUrl(Url);
     }
 
-    /**
-     * Abstract method which returns the body of the request
-     *
-     * @return NGSHttpBody classes
-     */
     public abstract HttpBody getRequestBodyHandler();
 
-    /**
-     * Abstract method which return the parser of the request
-     *
-     * @return NGSHttpResponse classes
-     */
     protected abstract HttpResponse getResponseHandler();
 
     public String getUrl() {
@@ -131,28 +121,14 @@ public abstract class HTTPBaseRequest implements Comparable<HTTPBaseRequest> {
         this.requestHeaders.put(key, value);
     }
 
-    /**
-     * The HTTP method, can be overridden in every request type
-     */
     public String getMethod() {
         return "PUT";
     }
 
-    /**
-     * When the url is different from the pattern of other requests,
-     * this method should return true.
-     *
-     * @return should the network manager build the url on it's own
-     */
     public boolean shouldOverrideUrl() {
         return false;
     }
 
-    /**
-     * Building the URL of the request (including the query string)
-     *
-     * @throws MalformedURLException
-     */
     public URL getURL(boolean includeQueryString) throws MalformedURLException {
         String urlToSend = getUrl();
         boolean hasQueryStringParams = queryStringParams != null && queryStringParams.size() > 0;
@@ -176,11 +152,6 @@ public abstract class HTTPBaseRequest implements Comparable<HTTPBaseRequest> {
         return new URL(urlToSend);
     }
 
-    /**
-     * Handling the response
-     *
-     * @param inputStream - The stream of the response
-     */
     public void setResponseStream(InputStream inputStream) throws Exception {
         try {
             if (responseHandler == null) {
