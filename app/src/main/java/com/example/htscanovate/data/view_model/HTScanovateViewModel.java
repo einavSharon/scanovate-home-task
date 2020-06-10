@@ -7,11 +7,10 @@ import com.example.htscanovate.network.HTScanovateNetworkManager;
 import com.example.htscanovate.network.request.HTScanovateRequest;
 import com.example.htscanovate.network.request.HTTPBaseRequest;
 
-import static com.example.htscanovate.ui.MainActivity.HTTPS_BTRUSTDEV_SCANOVATE_COM_API_INQUIRIES;
-
 public class HTScanovateViewModel extends ViewModel {
+    public static final String TASK_URL = "https://btrustdev.scanovate.com/api/inquiries";
     MutableLiveData<String> scanovateTaskResponse;
-    //todo create network manager as singelton at HTScanovateApplication class
+    //todo create network manager as singleton at HTScanovateApplication class
     private HTScanovateNetworkManager networkManager = new HTScanovateNetworkManager();
     private String lastJsonResponse;
 
@@ -22,7 +21,7 @@ public class HTScanovateViewModel extends ViewModel {
     }
 
     private void sendScanovateTask() {
-        HTScanovateRequest request = new HTScanovateRequest(HTTPS_BTRUSTDEV_SCANOVATE_COM_API_INQUIRIES);
+        HTScanovateRequest request = new HTScanovateRequest(TASK_URL);
         request.setParams(HTScanovateRequest.FLOW_ID_BODY_KEY, HTScanovateRequest.BODY_VALUE);
         request.setListener(new HTTPBaseRequest.HTTPBaseRequestListener() {
             @Override
